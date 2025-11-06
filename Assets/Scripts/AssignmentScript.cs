@@ -40,7 +40,7 @@ public class AssignmentScript : Singleton<AssignmentScript> {
         Quaternion rotation = Quaternion.FromToRotation(nv, nr);
 
         arObject.transform.rotation = rotation;
-        arObject.transform.position = pr - (arObject.transform.rotation * pv);
+        arObject.transform.position = pr - (arObject.transform.rotation * Vector3.Scale(pv, arObject.transform.localScale));
     }
 
     // Task 3: Object Rotation and Scaling
@@ -52,11 +52,34 @@ public class AssignmentScript : Singleton<AssignmentScript> {
         arObject.transform.RotateAround(rotationPoint, rotationAxis, deltaAngle);
     }
     public void ObjectScaling(GameObject arObject, float scaleRate) {
-        Vector3 newScale = arObject.transform.localScale + new Vector3(scaleRate, scaleRate, scaleRate);
-
-        if (newScale.x > 0.1f && newScale.y > 0.1f && newScale.z > 0.1f) {
-            arObject.transform.localScale = newScale;
+        // Fix for scaling direction in the editor
+        if (Application.isEditor && Input.GetKey(KeyCode.DownArrow))
+        {
+            scaleRate = -Mathf.Abs(scaleRate);
         }
+
+        Vector3 oldScale = arObject.transform.localScale;
+        Vector3 newScale = oldScale + new Vector3(scaleRate, scaleRate, scaleRate);
+
+        // Prevent scaling to be too small or negative
+        if (newScale.x <= 0.1f)
+        {
+            return;
+        }
+
+        Vector3 anchorPointLocal = arObject.GetComponent<ARInteractable>().AnchorPointOfObject;
+
+        // Calculate the world-space offset from pivot to anchor BEFORE scaling
+        Vector3 oldPivotToAnchor = arObject.transform.rotation * Vector3.Scale(anchorPointLocal, oldScale);
+
+        // Apply the new scale
+        arObject.transform.localScale = newScale;
+
+        // Calculate the world-space offset from pivot to anchor AFTER scaling
+        Vector3 newPivotToAnchor = arObject.transform.rotation * Vector3.Scale(anchorPointLocal, newScale);
+
+        // Adjust the object's position to keep the anchor point stationary, fixing the pivot issue
+        arObject.transform.position += oldPivotToAnchor - newPivotToAnchor;
     }
 
 }
